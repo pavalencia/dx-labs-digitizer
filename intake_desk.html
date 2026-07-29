@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Intake Desk — AI Edition · Dx Labs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#eef0e2; --panel:#fffdf5; --ink:#23301f; --muted:#6b7563;
+    --good:#2f6b3a; --good-bg:#dcefd6; --bad:#b23a2e; --bad-bg:#f6dcd7;
+    --warn:#b9791a; --warn-bg:#f7ead0; --line:#23301f; --gold:#c8922a;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:
+      repeating-linear-gradient(0deg,transparent,transparent 38px,rgba(35,48,31,.03) 38px,rgba(35,48,31,.03) 39px),
+      var(--bg);
+    color:var(--ink); font-family:'JetBrains Mono',monospace;
+    min-height:100vh; display:flex; align-items:flex-start; justify-content:center; padding:18px;
+  }
+  #app{width:100%; max-width:860px;}
+  .pix{font-family:'Press Start 2P',monospace;}
+  .card{background:var(--panel); border:3px solid var(--line); border-radius:6px;
+        box-shadow:5px 5px 0 var(--line); padding:20px;}
+  .hidden{display:none !important;}
+
+  /* HUD */
+  #hud{display:flex; gap:10px; margin-bottom:14px; flex-wrap:wrap; align-items:stretch;}
+  .hud-box{flex:1; min-width:90px; background:var(--panel); border:3px solid var(--line);
+           border-radius:6px; box-shadow:3px 3px 0 var(--line); padding:8px 10px; text-align:center;}
+  .hud-box .lbl{font-size:8px; letter-spacing:1px; color:var(--muted);}
+  .hud-box .val{font-family:'Press Start 2P',monospace; font-size:15px; margin-top:6px; color:var(--good);}
+  #combo-box .val{color:var(--gold);}
+
+  /* Title */
+  #screen-title{text-align:center;}
+  .title-badge{display:inline-block; font-size:9px; letter-spacing:2px; color:#fff; background:var(--good);
+    border:3px solid var(--line); padding:6px 10px; border-radius:4px; box-shadow:3px 3px 0 var(--line);}
+  h1.pix{font-size:26px; line-height:1.5; margin:22px 0 6px; color:var(--good);}
+  .subtitle{font-size:13px; color:var(--muted); margin-bottom:22px;}
+  .name-input{width:100%; max-width:360px; font-family:'JetBrains Mono',monospace; font-size:15px;
+    padding:12px; border:3px solid var(--line); border-radius:5px; text-align:center; background:#fff;}
+  .btn{font-family:'Press Start 2P',monospace; font-size:12px; color:#fff; background:var(--good);
+    border:3px solid var(--line); border-radius:5px; box-shadow:4px 4px 0 var(--line);
+    padding:14px 20px; cursor:pointer; transition:transform .05s, box-shadow .05s;}
+  .btn:hover{filter:brightness(1.06);}
+  .btn:active{transform:translate(3px,3px); box-shadow:1px 1px 0 var(--line);}
+  .btn.ghost{background:#fff; color:var(--ink);}
+
+  /* How to play */
+  .how-row{display:flex; gap:12px; align-items:flex-start; margin:14px 0; text-align:left;}
+  .how-tag{font-family:'Press Start 2P',monospace; font-size:10px; color:#fff; padding:8px; border:3px solid var(--line);
+    border-radius:5px; min-width:120px; text-align:center; box-shadow:3px 3px 0 var(--line);}
+  .how-desc{font-size:13px; line-height:1.5;}
+
+  /* Game layout */
+  .round-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;}
+  .round-head .pix{font-size:11px; color:var(--muted);}
+  .grid{display:grid; grid-template-columns:1fr 1fr; gap:14px;}
+  @media(max-width:640px){ .grid{grid-template-columns:1fr;} }
+
+  .panel-label{font-family:'Press Start 2P',monospace; font-size:9px; letter-spacing:1px; margin-bottom:8px;}
+  /* Document (source) */
+  .doc{background:#fbf7e9; border:3px dashed #b8b088; border-radius:5px; padding:14px; min-height:230px;}
+  .doc .doc-type{font-size:9px; letter-spacing:1px; color:#a08f4e; text-transform:uppercase; margin-bottom:8px;}
+  .doc .doc-title{font-weight:700; margin-bottom:10px; font-size:14px;}
+  .doc .kv{display:flex; gap:8px; font-size:13px; padding:3px 0; line-height:1.4;}
+  .doc .kv .k{color:var(--muted); min-width:74px;}
+  .doc .kv .v{font-weight:700;}
+  .doc .smudge{background:linear-gradient(90deg,#ded6b8,#c9c09a); color:transparent; border-radius:3px;
+    user-select:none; padding:0 6px;}
+  .doc .line{font-size:13px; line-height:1.5;}
+
+  /* AI extraction */
+  .ai{background:#f2f6fb; border:3px solid #2f4b6b; border-radius:5px; padding:14px; min-height:230px; position:relative;}
+  .ai .ai-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;}
+  .ai .ai-name{font-family:'Press Start 2P',monospace; font-size:9px; color:#2f4b6b;}
+  .conf{font-size:9px; padding:3px 6px; border-radius:3px; border:2px solid var(--line); font-weight:700;}
+  .conf.high{background:#d7e8d0; color:var(--good);}
+  .conf.low{background:#f7ead0; color:var(--warn);}
+  .conf.normal{background:#e7ecf2; color:#2f4b6b;}
+  .ai-field{display:flex; gap:8px; font-size:13px; padding:6px; border-radius:4px; line-height:1.4; border:2px solid transparent;}
+  .ai-field .k{color:var(--muted); min-width:74px;}
+  .ai-field .v{font-weight:700;}
+  .ai-field.pickable{cursor:pointer; border:2px dashed #2f4b6b; background:#e9f0f9;}
+  .ai-field.pickable:hover{background:#dbe7f7;}
+  .ai-field.wrong{background:var(--bad-bg); border:2px solid var(--bad);}
+  .ai-field.rightfield{background:var(--good-bg); border:2px solid var(--good);}
+
+  /* Action buttons */
+  .actions{display:flex; gap:10px; margin-top:14px;}
+  .actions .btn{flex:1; font-size:11px; padding:14px 6px;}
+  .btn-approve{background:var(--good);}
+  .btn-fix{background:var(--warn);}
+  .btn-flag{background:var(--bad);}
+
+  .pick-hint{margin-top:12px; text-align:center; font-size:12px; font-weight:700; color:#2f4b6b;
+    background:#e9f0f9; border:2px dashed #2f4b6b; border-radius:5px; padding:10px;}
+
+  /* Feedback */
+  #feedback{margin-top:14px; border:3px solid var(--line); border-radius:6px; padding:14px; box-shadow:4px 4px 0 var(--line);}
+  #feedback.good{background:var(--good-bg);}
+  #feedback.bad{background:var(--bad-bg);}
+  #feedback .fb-title{font-family:'Press Start 2P',monospace; font-size:13px; margin-bottom:8px;}
+  #feedback .fb-body{font-size:13px; line-height:1.5;}
+  #feedback .fb-pts{font-family:'Press Start 2P',monospace; font-size:12px; margin-top:8px;}
+
+  /* Results */
+  #screen-over{text-align:center;}
+  .stat-grid{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:18px 0;}
+  .stat{background:#fff; border:3px solid var(--line); border-radius:5px; box-shadow:3px 3px 0 var(--line); padding:14px;}
+  .stat .s-val{font-family:'Press Start 2P',monospace; font-size:20px; color:var(--good);}
+  .stat .s-lbl{font-size:10px; color:var(--muted); margin-top:8px; letter-spacing:1px;}
+  .lesson{background:var(--good-bg); border:3px solid var(--good); border-radius:5px; padding:14px; font-size:13px; line-height:1.5; margin:6px 0 16px;}
+  .shot{background:var(--warn-bg); border:3px solid var(--warn); border-radius:5px; padding:14px; margin:14px 0;
+    font-family:'Press Start 2P',monospace; font-size:12px; line-height:1.6; animation:pulse 1.1s infinite;}
+  .shot small{display:block; font-family:'JetBrains Mono',monospace; font-size:12px; margin-top:8px; color:var(--warn); font-weight:700;}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(185,121,26,0);}50%{box-shadow:0 0 0 4px rgba(185,121,26,.25);}}
+  .flash{animation:flash .5s;}
+  @keyframes flash{0%{background:#fff;}40%{background:var(--good-bg);}100%{background:var(--panel);}}
+  .shake{animation:shake .3s;}
+  @keyframes shake{0%,100%{transform:translateX(0);}25%{transform:translateX(-6px);}75%{transform:translateX(6px);}}
+
+  /* Leaderboard on results */
+  .lb{background:#fff; border:3px solid var(--line); border-radius:6px; box-shadow:4px 4px 0 var(--line); padding:14px; margin:14px 0; text-align:left;}
+  .lb-title{font-size:11px; color:var(--good); margin-bottom:10px; text-align:center;}
+  .lb-list{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px; max-height:290px; overflow-y:auto;}
+  .lb-row{display:flex; align-items:center; gap:10px; padding:7px 10px; border:2px solid #e2e0d0; border-radius:4px; background:#fbfaf2; font-size:13px;}
+  .lb-row.you{border-color:var(--good); background:var(--good-bg);}
+  .lb-rank{font-family:'Press Start 2P',monospace; font-size:11px; min-width:34px; color:var(--muted);}
+  .lb-name{flex:1; font-weight:700;}
+  .lb-score{font-family:'Press Start 2P',monospace; font-size:12px; color:var(--good);}
+  .lb-empty{color:var(--muted); text-align:center; padding:10px; font-size:12px; list-style:none;}
+  .rank-line{margin-top:10px; text-align:center; font-family:'Press Start 2P',monospace; font-size:10px; color:var(--ink); min-height:12px;}
+  .rank-line b{color:var(--good);}
+  .rank-line.champ{color:var(--gold); animation:pulse2 .7s ease-in-out 3;}
+  @keyframes pulse2{0%,100%{transform:scale(1);}50%{transform:scale(1.06);}}
+  .lb-note{margin-top:10px; text-align:center; font-size:11px; color:var(--muted);}
+</style>
+<!--
+  SHARED TOP-10 LEADERBOARD (Firebase Realtime Database, project: dx-labs-digitizer)
+  REQUIRED: in Realtime Database -> Rules, paste this and Publish (otherwise scores won't save):
+  {
+    "rules": {
+      "leaderboard": {
+        ".read": true,
+        "$player": {
+          ".write": true,
+          ".validate": "newData.hasChildren(['name','score','at']) && newData.child('score').isNumber() && newData.child('score').val() >= 0 && newData.child('score').val() <= 100000"
+        }
+      }
+    }
+  }
+-->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+</head>
+<body>
+<div id="app">
+
+  <!-- HUD (hidden on title) -->
+  <div id="hud" class="hidden">
+    <div class="hud-box"><div class="lbl">SCORE</div><div class="val" id="hud-score">0</div></div>
+    <div class="hud-box"><div class="lbl">DOC</div><div class="val" id="hud-round">1/10</div></div>
+    <div class="hud-box" id="combo-box"><div class="lbl">COMBO</div><div class="val" id="hud-combo">x1</div></div>
+    <div class="hud-box"><div class="lbl">CAUGHT</div><div class="val" id="hud-caught">0</div></div>
+  </div>
+
+  <!-- TITLE -->
+  <div id="screen-title" class="card">
+    <span class="title-badge">DX LABS · DIGITIZER</span>
+    <h1 class="pix">THE INTAKE DESK</h1>
+    <div class="subtitle">AI Edition — you are the human in the loop</div>
+    <p style="font-size:13px;line-height:1.6;max-width:560px;margin:0 auto 18px;">
+      An AI reads each messy travel document and fills in the data. Your job is to
+      <b>check its work</b> before it goes into the system — approve the good reads,
+      fix the misreads, and flag the ones the AI only <i>guessed</i>.
+    </p>
+    <input id="player-name" class="name-input" placeholder="Enter your name" maxlength="24" autocomplete="off"><br><br>
+    <button class="btn" id="btn-start">▶ START SHIFT</button>
+    <div id="name-error" style="color:var(--bad);font-size:12px;margin-top:10px;min-height:14px;"></div>
+  </div>
+
+  <!-- HOW TO PLAY -->
+  <div id="screen-how" class="card hidden">
+    <div class="panel-label pix" style="color:var(--good);">HOW TO PLAY</div>
+    <div class="how-row"><div class="how-tag" style="background:var(--good);">✔ APPROVE</div>
+      <div class="how-desc">The AI read every field correctly. Send it through.</div></div>
+    <div class="how-row"><div class="how-tag" style="background:var(--warn);">✏ NEEDS FIX</div>
+      <div class="how-desc">The AI misread a field (wrong number, date, or name). Choose this, then <b>tap the wrong field</b> to earn a bonus.</div></div>
+    <div class="how-row"><div class="how-tag" style="background:var(--bad);">🚩 FLAG</div>
+      <div class="how-desc">The document is unreadable or missing info, and the AI <i>guessed</i>. Don't let it through — flag it for a human.</div></div>
+    <p style="font-size:12px;line-height:1.6;color:var(--muted);margin-top:14px;">
+      ⚡ Faster judgments score more. 🔥 Correct calls in a row build a combo.
+      🎯 Catch a <b>confident-but-wrong</b> AI read for a big bonus.
+      Never rubber-stamp a bad read — that's how bad data gets in.
+    </p>
+    <div style="text-align:center;margin-top:16px;"><button class="btn" id="btn-begin">▶ FIRST DOCUMENT</button></div>
+  </div>
+
+  <!-- GAME -->
+  <div id="screen-game" class="card hidden">
+    <div class="round-head">
+      <span class="pix" id="round-tag">DOCUMENT 1 OF 10</span>
+      <span class="pix" id="round-type">—</span>
+    </div>
+    <div class="grid">
+      <div>
+        <div class="panel-label" style="color:#a08f4e;">📄 SOURCE DOCUMENT</div>
+        <div class="doc" id="doc-panel"></div>
+      </div>
+      <div>
+        <div class="panel-label" style="color:#2f4b6b;">🤖 AI EXTRACTION</div>
+        <div class="ai" id="ai-panel"></div>
+      </div>
+    </div>
+    <div class="actions" id="action-row">
+      <button class="btn btn-approve" data-act="approve">✔ APPROVE</button>
+      <button class="btn btn-fix" data-act="fix">✏ NEEDS FIX</button>
+      <button class="btn btn-flag" data-act="flag">🚩 FLAG</button>
+    </div>
+    <div id="pick-hint" class="pick-hint hidden">👆 Tap the field the AI got wrong</div>
+    <div id="feedback" class="hidden"></div>
+    <div style="text-align:center;margin-top:14px;">
+      <button class="btn ghost hidden" id="btn-next">NEXT ▶</button>
+    </div>
+  </div>
+
+  <!-- RESULTS -->
+  <div id="screen-over" class="card hidden">
+    <h1 class="pix" style="font-size:20px;" id="over-title">SHIFT COMPLETE!</h1>
+    <div class="stat-grid">
+      <div class="stat"><div class="s-val" id="final-score">0</div><div class="s-lbl">FINAL SCORE</div></div>
+      <div class="stat"><div class="s-val" id="final-acc">0%</div><div class="s-lbl">CORRECT CALLS</div></div>
+      <div class="stat"><div class="s-val" id="final-caught">0/0</div><div class="s-lbl">AI ERRORS CAUGHT</div></div>
+      <div class="stat"><div class="s-val" id="final-combo">x1</div><div class="s-lbl">BEST COMBO</div></div>
+    </div>
+    <div class="lesson" id="over-lesson"></div>
+    <div class="lb">
+      <div class="lb-title pix">🏆 TOP 10 · LIVE</div>
+      <ul class="lb-list" id="lb-list"></ul>
+      <div class="rank-line" id="rank-line"></div>
+      <div class="lb-note">Live board — every player who finishes appears here for everyone to see.</div>
+    </div>
+    <div class="shot">📸 SCREENSHOT YOUR SCORE<small>You will need to send this to us.</small></div>
+    <button class="btn" id="btn-restart">↺ NEW SHIFT</button>
+  </div>
+
+</div>
+
+<script>
+// ---------- Web Audio arcade SFX ----------
+let actx=null;
+function AC(){ if(!actx){ try{actx=new (window.AudioContext||window.webkitAudioContext)();}catch(e){} } return actx; }
+function beep({freq=440,duration=.1,type='square',vol=.12,delay=0,glideTo=null}){
+  const c=AC(); if(!c) return;
+  const t=c.currentTime+delay;
+  const o=c.createOscillator(), g=c.createGain();
+  o.type=type; o.frequency.setValueAtTime(freq,t);
+  if(glideTo) o.frequency.exponentialRampToValueAtTime(glideTo,t+duration);
+  g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(.0001,t+duration);
+  o.connect(g); g.connect(c.destination); o.start(t); o.stop(t+duration+.02);
+}
+const sfxClick =()=>beep({freq:520,duration:.05,glideTo:720,vol:.1});
+const sfxHover =()=>beep({freq:680,duration:.028,vol:.045});
+const sfxCoin  =()=>{beep({freq:988,duration:.06,vol:.13});beep({freq:1319,duration:.13,vol:.13,delay:.06});};
+const sfxWrong =()=>{beep({freq:220,duration:.16,type:'sawtooth',vol:.14});beep({freq:160,duration:.22,type:'sawtooth',vol:.14,delay:.14});};
+const sfxFlag  =()=>{beep({freq:740,duration:.08,vol:.12});beep({freq:560,duration:.16,vol:.12,delay:.08});};
+const sfxCombo =()=>[523,659,784,1047].forEach((f,i)=>beep({freq:f,duration:.09,vol:.13,delay:i*.06}));
+const sfxStart =()=>[392,523,659,784].forEach((f,i)=>beep({freq:f,duration:.08,vol:.13,delay:i*.07}));
+const sfxOver  =()=>{beep({freq:392,duration:.14,vol:.14});beep({freq:330,duration:.14,vol:.14,delay:.14});beep({freq:262,duration:.28,vol:.14,delay:.28});};
+const sfxFanfare=()=>{const s=[[659,.12],[659,.12],[659,.16],[523,.12],[659,.16],[784,.3],[392,.3]];let t=0;s.forEach(([f,d])=>{beep({freq:f,duration:d,vol:.15,delay:t});t+=d*.92;});};
+
+// ---------- Firebase shared leaderboard ----------
+const firebaseConfig = {
+  apiKey:            "AIzaSyCA17C9xNTYCXsWGIWJEcjn2s-aZEkJiTM",
+  authDomain:        "dx-labs-digitizer.firebaseapp.com",
+  databaseURL:       "https://dx-labs-digitizer-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId:         "dx-labs-digitizer",
+  storageBucket:     "dx-labs-digitizer.firebasestorage.app",
+  messagingSenderId: "586064846806",
+  appId:             "1:586064846806:web:de4babec9b62e1fa9c8e77",
+  measurementId:     "G-EKEY6QMX8L"
+};
+const LB_NODE='leaderboard';
+let db=null, fbReady=false;
+try{
+  if(window.firebase && firebaseConfig.databaseURL){
+    firebase.initializeApp(firebaseConfig);
+    db=firebase.database(); fbReady=true;
+  } else { console.warn('Firebase SDK not loaded — leaderboard offline.'); }
+}catch(e){ console.error('Firebase init failed:', e); }
+function nameKey(n){ return (n||'').trim().toLowerCase(); }
+function dbKey(n){ return nameKey(n).replace(/[.#$\[\]\/]/g,'_').slice(0,60)||'player'; }
+
+async function loadBoard(){
+  if(!fbReady) return [];
+  try{
+    const snap=await db.ref(LB_NODE).once('value');
+    const v=snap.val()||{};
+    return Object.keys(v).map(k=>v[k]).filter(e=>e && typeof e.score==='number');
+  }catch(e){ console.error('load board',e); return []; }
+}
+function renderLeaderboard(list){
+  const el=$('lb-list'); if(!el) return; el.innerHTML='';
+  const medals=['🥇','🥈','🥉'];
+  const top=[...list].sort((a,b)=>b.score-a.score||a.at-b.at).slice(0,10);
+  if(!top.length){ el.innerHTML='<li class="lb-empty">No scores yet — be the first!</li>'; return; }
+  top.forEach((e,i)=>{
+    const li=document.createElement('li'); li.className='lb-row';
+    if(nameKey(e.name)===nameKey(playerName)) li.classList.add('you');
+    li.innerHTML=`<span class="lb-rank">${medals[i]||(i+1)+'.'}</span><span class="lb-name">${esc(e.name)}</span><span class="lb-score">${e.score}</span>`;
+    el.appendChild(li);
+  });
+}
+function updateRankLine(list){
+  const ranked=[...list].sort((a,b)=>b.score-a.score||a.at-b.at);
+  const r=ranked.findIndex(e=>nameKey(e.name)===nameKey(playerName))+1;
+  const t=ranked.length; const el=$('rank-line'); if(!el) return;
+  el.classList.remove('champ');
+  if(r===1){ el.textContent=`🏆 #1 of ${t} player${t!==1?'s':''}!`; el.classList.add('champ'); }
+  else if(r>0){ el.innerHTML=`You placed <b>#${r}</b> of ${t} player${t!==1?'s':''}`; }
+  else el.textContent='';
+}
+function subscribeBoard(){
+  if(!fbReady) return;
+  db.ref(LB_NODE).on('value',snap=>{
+    const v=snap.val()||{};
+    const arr=Object.keys(v).map(k=>v[k]).filter(e=>e && typeof e.score==='number');
+    renderLeaderboard(arr); updateRankLine(arr);
+  });
+}
+
+// ---------- Content: 10 documents ----------
+// answer: 'approve' | 'fix' | 'flag'; wrongField -> which AI field is wrong (for 'fix'); truth -> correct value
+const DOCS=[
+ { type:'Email request', title:'Re: Reimbursement — training', conf:'normal',
+   doc:[['From','a.salcedo@up'],['Officer','Andrea Salcedo'],['Travel','June 3–4, 2026 (2 days)'],['Amount','PHP 3,000.00'],['Purpose','DX training, UP Cebu']],
+   ai:{officer:'Andrea Salcedo',dates:'Jun 3–4, 2026',days:'2',amount:'\u20b13,000.00',purpose:'DX training, UP Cebu'},
+   answer:'approve', explain:'Every field matches the email. A clean read — approve and move on.' },
+
+ { type:'Scanned receipt', title:'Official Receipt #4471', conf:'normal',
+   doc:[['Payee','Marco Villanueva'],['Days','3'],['Rate','1,500 / day'],['TOTAL','PHP 4,500.00'],['Date','07 Jun 2026']],
+   ai:{officer:'Marco Villanueva',dates:'Jun 7, 2026',days:'3',amount:'\u20b1450.00',purpose:'Field visit'},
+   answer:'fix', wrongField:'amount', truth:'\u20b14,500.00',
+   explain:'The receipt total is \u20b14,500.00 but the AI dropped a zero and read \u20b1450.00. Classic OCR digit slip.' },
+
+ { type:'Travel form', title:'Travel Order 26-118', conf:'normal',
+   doc:[['Name','Bianca Reyes'],['No. of days','3'],['DTE rate','1,500'],['Dest.','Regional Office'],['Filed','2026-06-12']],
+   ai:{officer:'Bianca Reyes',dates:'Jun 12, 2026',days:'30',amount:'\u20b14,500.00',purpose:'Regional Office visit'},
+   answer:'fix', wrongField:'days', truth:'3',
+   explain:'The form says 3 days; the AI read 30 (a stray extra zero). At \u20b11,500/day that\u2019s a \u20b140,500 error if it slips through.' },
+
+ { type:'Handwritten receipt', title:'Acknowledgement (handwritten)', conf:'high',
+   doc:[['Payee','D. Tan'],['For','meals & fare'],['Amount','P▓,▓▓0.00 (smudged)'],['Date','Jul ▓, 2026']],
+   ai:{officer:'Daniel Tan',dates:'Jul 5, 2026',days:'2',amount:'\u20b12,000.00',purpose:'Meals & fare'},
+   answer:'flag', conf_wrong:true,
+   explain:'The amount and date are smudged/illegible — yet the AI filled in \u20b12,000 with HIGH confidence. That\u2019s a hallucination. Flag it for a human, don\u2019t trust the guess.' },
+
+ { type:'Travel form', title:'Travel Order 26-121', conf:'normal',
+   doc:[['Name','Marco Villanueva'],['Days','2'],['Amount','PHP 3,000.00'],['Dest.','UP Cebu'],['Filed','2026-06-20']],
+   ai:{officer:'Marco Villanuena',dates:'Jun 20, 2026',days:'2',amount:'\u20b13,000.00',purpose:'UP Cebu'},
+   answer:'fix', wrongField:'officer', truth:'Marco Villanueva',
+   explain:'The AI misspelled the name: "Villanuena" vs the form\u2019s "Villanueva". Small typo, but it splits one person into two in any later analysis.' },
+
+ { type:'Email request', title:'Reimbursement request', conf:'low',
+   doc:[['Officer','Elena Cruz'],['Trip','Jun 24–25, 2026'],['Days','2'],['Amount','PHP 3,000.00'],['Purpose','Stakeholder mtg']],
+   ai:{officer:'Elena Cruz',dates:'Jun 24–25, 2026',days:'2',amount:'\u20b13,000.00',purpose:'Stakeholder mtg'},
+   answer:'approve', conf_note:'low',
+   explain:'The AI flagged LOW confidence — but check the source: every field is actually correct. Low confidence doesn\u2019t always mean wrong. Verify, then approve.' },
+
+ { type:'Travel form', title:'Travel Order 26-130', conf:'normal',
+   doc:[['Name','Daniel Tan'],['Depart','07/06/2026'],['Return','07/09/2026'],['Days','4'],['Amount','PHP 6,000.00']],
+   ai:{officer:'Daniel Tan',dates:'Jun 7, 2026',days:'4',amount:'\u20b16,000.00',purpose:'Regional audit'},
+   answer:'fix', wrongField:'dates', truth:'Jul 6–9, 2026',
+   explain:'Depart 07/06 and Return 07/09 are July 6–9 (day/month). The AI read "Jun 7" — wrong month AND lost the range. Watch date formats.' },
+
+ { type:'Email request', title:'Pls process reimbursement', conf:'high',
+   doc:[['Officer','Andrea Salcedo'],['Trip','Conference'],['Amount','PHP 4,500.00'],['Note','(number of days not stated)']],
+   ai:{officer:'Andrea Salcedo',dates:'Jul 1–5, 2026',days:'5',amount:'\u20b14,500.00',purpose:'Conference'},
+   answer:'flag', conf_wrong:true,
+   explain:'The email never states the dates or number of days — but the AI confidently invented "Jul 1–5, 5 days". Don\u2019t let a made-up value through; flag for the missing info.' },
+
+ { type:'Scanned receipt', title:'Official Receipt #4520', conf:'normal',
+   doc:[['Payee','Bianca Reyes'],['Days','4'],['Rate','1,500'],['TOTAL','PHP 6,000.00'],['Date','15 Jul 2026']],
+   ai:{officer:'Bianca Reyes',dates:'Jul 15, 2026',days:'4',amount:'\u20b160,000.00',purpose:'Field validation'},
+   answer:'fix', wrongField:'amount', truth:'\u20b16,000.00',
+   explain:'Receipt total is \u20b16,000 but the AI added a digit — \u20b160,000. Over-reads are as dangerous as under-reads.' },
+
+ { type:'Travel form', title:'Travel Order 26-142', conf:'normal',
+   doc:[['Name','Elena Cruz'],['Days','2'],['Amount','PHP 3,000.00'],['Dest.','Regional Office'],['Filed','2026-07-20']],
+   ai:{officer:'Elena Cruz',dates:'Jul 20, 2026',days:'2',amount:'\u20b13,000.00',purpose:'Regional Office'},
+   answer:'approve',
+   explain:'All five fields match the form. A clean read to close your shift — approve.' },
+];
+
+// ---------- State ----------
+let playerName='Player', idx=0, score=0, combo=0, bestCombo=0, correctCalls=0;
+let aiErrors=0, aiErrorsCaught=0, roundStart=0, resolving=false, awaitingPick=false;
+
+const $=id=>document.getElementById(id);
+function show(id){ ['screen-title','screen-how','screen-game','screen-over'].forEach(s=>$(s).classList.add('hidden')); $(id).classList.remove('hidden'); $('hud').classList.toggle('hidden', id==='screen-title'||id==='screen-how'); }
+function esc(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+const FIELDS=[['officer','Officer'],['dates','Dates'],['days','Days'],['amount','Amount'],['purpose','Purpose']];
+
+function renderRound(){
+  const d=DOCS[idx];
+  $('round-tag').textContent=`DOCUMENT ${idx+1} OF ${DOCS.length}`;
+  $('round-type').textContent=d.type.toUpperCase();
+  // source doc
+  let h=`<div class="doc-type">${esc(d.type)}</div><div class="doc-title">${esc(d.title)}</div>`;
+  d.doc.forEach(([k,v])=>{
+    const smud = /▓/.test(v);
+    h+=`<div class="kv"><span class="k">${esc(k)}</span><span class="v ${smud?'smudge':''}">${esc(v)}</span></div>`;
+  });
+  $('doc-panel').innerHTML=h;
+  // ai panel
+  const conf = d.conf||'normal';
+  const confLabel = conf==='high'?'HIGH CONF':conf==='low'?'LOW CONF':'AI READ';
+  let a=`<div class="ai-head"><span class="ai-name">🤖 AI EXTRACTION</span><span class="conf ${conf}">${confLabel}</span></div>`;
+  FIELDS.forEach(([key,lbl])=>{
+    a+=`<div class="ai-field" data-field="${key}"><span class="k">${lbl}</span><span class="v">${esc(d.ai[key]||'—')}</span></div>`;
+  });
+  $('ai-panel').innerHTML=a;
+  // reset UI
+  $('feedback').classList.add('hidden'); $('feedback').className='hidden';
+  $('btn-next').classList.add('hidden');
+  $('pick-hint').classList.add('hidden');
+  $('action-row').style.display='flex';
+  resolving=false; awaitingPick=false;
+  roundStart=performance.now();
+}
+
+function speedBonus(){ const s=(performance.now()-roundStart)/1000; return Math.max(0, Math.round(50*(1-Math.min(s,12)/12))); }
+function multiplier(){ return 1 + Math.min(combo,5)*0.2; }
+
+function onAction(act){
+  if(resolving||awaitingPick) return;
+  sfxClick();
+  const d=DOCS[idx];
+  if(act==='fix' && d.answer==='fix'){
+    // correct action -> let them tap the wrong field for a bonus
+    awaitingPick=true;
+    $('action-row').style.display='none';
+    $('pick-hint').classList.remove('hidden');
+    document.querySelectorAll('.ai-field').forEach(el=>{
+      el.classList.add('pickable');
+      el.onmouseenter=sfxHover;
+      el.onclick=()=>resolveFix(el.getAttribute('data-field'));
+    });
+    return;
+  }
+  resolve(act, null);
+}
+
+function resolveFix(pickedField){
+  if(!awaitingPick) return;
+  awaitingPick=false;
+  const d=DOCS[idx];
+  document.querySelectorAll('.ai-field').forEach(el=>{ el.classList.remove('pickable'); el.onclick=null; });
+  // highlight
+  document.querySelector(`.ai-field[data-field="${d.wrongField}"]`).classList.add('wrong');
+  if(pickedField!==d.wrongField){
+    const pe=document.querySelector(`.ai-field[data-field="${pickedField}"]`);
+    if(pe) pe.style.opacity=.6;
+  }
+  resolve('fix', pickedField);
+}
+
+function resolve(act, pickedField){
+  resolving=true;
+  const d=DOCS[idx];
+  const isAIerror = (d.answer==='fix'||d.answer==='flag');
+  if(isAIerror) aiErrors++;
+  const correct = (act===d.answer);
+  let pts=0, bonus=[], good=correct;
+
+  if(correct){
+    correctCalls++;
+    combo++; bestCombo=Math.max(bestCombo,combo);
+    const base=100, sb=speedBonus();
+    pts=Math.round((base+sb)*multiplier());
+    bonus.push(`+${base} base`); if(sb) bonus.push(`+${sb} speed`);
+    if(multiplier()>1) bonus.push(`x${multiplier().toFixed(1)} combo`);
+    if(isAIerror) aiErrorsCaught++;
+    // field-spot bonus
+    if(d.answer==='fix'){
+      if(pickedField===d.wrongField){ pts+=50; bonus.push('+50 spotted the field'); document.querySelector(`.ai-field[data-field="${d.wrongField}"]`).classList.add('rightfield'); }
+    }
+    // hallucination catch bonus
+    if(d.conf_wrong){ pts+=50; bonus.push('+50 caught a confident AI!'); }
+    score+=pts;
+    if(combo>=3) sfxCombo(); else if(d.answer==='flag') sfxFlag(); else sfxCoin();
+    $('screen-game').classList.remove('shake'); $('screen-game').classList.add('flash');
+  } else {
+    combo=0;
+    sfxWrong();
+    $('screen-game').classList.remove('flash'); $('screen-game').classList.add('shake');
+    // reveal the wrong field if any
+    if(d.answer==='fix'){ const w=document.querySelector(`.ai-field[data-field="${d.wrongField}"]`); if(w) w.classList.add('wrong'); }
+  }
+  setTimeout(()=>$('screen-game').classList.remove('flash','shake'),500);
+
+  // feedback message
+  let title, body=d.explain;
+  if(correct){
+    title = d.answer==='approve'?'✔ GOOD APPROVE':d.answer==='fix'?'✏ NICE CATCH':'🚩 GOOD FLAG';
+  } else {
+    if(act==='approve' && d.answer==='fix') title='❌ RUBBER-STAMPED A BAD READ';
+    else if(act==='approve' && d.answer==='flag') title='❌ APPROVED A GUESS';
+    else if(act==='fix' && d.answer==='approve') title='❌ THAT READ WAS FINE';
+    else if(act==='flag' && d.answer==='approve') title='❌ TOO CAUTIOUS';
+    else if(act==='flag' && d.answer==='fix') title='❌ IT WAS FIXABLE';
+    else if(act==='fix' && d.answer==='flag') title='❌ DON\u2019T FIX A GUESS';
+    else title='❌ NOT QUITE';
+  }
+  const fb=$('feedback');
+  fb.className = good?'good':'bad';
+  const label = d.answer==='approve'?'APPROVE':d.answer==='fix'?'NEEDS FIX':'FLAG';
+  const why = good ? `<b>Why it\u2019s right:</b> ${d.explain}`
+                   : `<b>The right call was ${label}.</b> ${d.explain}`;
+  fb.innerHTML=`<div class="fb-title" style="color:${good?'var(--good)':'var(--bad)'}">${title}</div>
+                <div class="fb-body">${why}</div>
+                <div class="fb-pts" style="color:${good?'var(--good)':'var(--muted)'}">${good?bonus.join('  ')+' = +'+pts:'+0  ·  combo reset'}</div>`;
+  fb.classList.remove('hidden');
+  $('pick-hint').classList.add('hidden');
+  $('action-row').style.display='none';
+  $('btn-next').classList.remove('hidden');
+  updateHud();
+}
+
+function updateHud(){
+  $('hud-score').textContent=score;
+  $('hud-round').textContent=`${Math.min(idx+1,DOCS.length)}/${DOCS.length}`;
+  $('hud-combo').textContent='x'+combo;
+  $('hud-caught').textContent=aiErrorsCaught;
+}
+
+function nextRound(){
+  sfxClick();
+  idx++;
+  if(idx>=DOCS.length){ endGame(); return; }
+  renderRound(); updateHud();
+}
+
+async function endGame(){
+  show('screen-over');
+  const acc=Math.round(100*correctCalls/DOCS.length);
+  $('final-score').textContent=score;
+  $('final-acc').textContent=acc+'%';
+  $('final-caught').textContent=`${aiErrorsCaught}/${aiErrors}`;
+  $('final-combo').textContent='x'+bestCombo;
+  let lesson, title;
+  if(acc>=90){ title='⭐ MASTER DIGITIZER!'; lesson='Outstanding. You trusted the AI where it earned it and caught it where it didn\u2019t — that\u2019s exactly the human-in-the-loop the job needs.'; sfxFanfare(); }
+  else if(acc>=60){ title='SHIFT COMPLETE!'; lesson='Solid work. Remember: an AI reading is a draft, not the truth. The wins came from checking every field against the source before approving.'; sfxOver(); }
+  else { title='SHIFT COMPLETE'; lesson='Good start — the big lesson: never approve on trust alone. Dropped digits, wrong date formats, and confident guesses are the AI\u2019s most common misses. Verify, then decide.'; sfxOver(); }
+  $('over-title').textContent=title;
+  $('over-lesson').textContent=lesson;
+
+  // ---- auto-submit score to the shared Top 10 ----
+  const lb=$('lb-list'); lb.innerHTML='<li class="lb-empty">Saving your score…</li>';
+  const at=Date.now();
+  try{
+    if(fbReady){
+      const ref=db.ref(LB_NODE+'/'+dbKey(playerName));
+      await ref.transaction(cur=> (cur && typeof cur.score==='number' && cur.score>=score) ? cur : {name:playerName,score:score,at:at});
+      const list=await loadBoard();
+      renderLeaderboard(list); updateRankLine(list);
+      subscribeBoard();      // keep the board live for everyone
+    } else {
+      lb.innerHTML='<li class="lb-empty">Leaderboard offline — check your connection.</li>';
+    }
+  }catch(err){
+    console.error('Leaderboard error:', err);
+    lb.innerHTML='<li class="lb-empty">Could not reach the leaderboard.</li>';
+  }
+}
+
+// ---------- wiring ----------
+$('btn-start').addEventListener('click',()=>{
+  const v=$('player-name').value.trim();
+  if(!v){ $('name-error').textContent='Enter your name to start.'; sfxWrong(); return; }
+  playerName=v; sfxStart(); show('screen-how');
+});
+$('player-name').addEventListener('keydown',e=>{ if(e.key==='Enter') $('btn-start').click(); });
+$('btn-begin').addEventListener('click',()=>{ sfxStart(); idx=0;score=0;combo=0;bestCombo=0;correctCalls=0;aiErrors=0;aiErrorsCaught=0; show('screen-game'); renderRound(); updateHud(); });
+$('action-row').querySelectorAll('.btn').forEach(b=>{ b.addEventListener('mouseenter',sfxHover); b.addEventListener('click',()=>onAction(b.getAttribute('data-act'))); });
+$('btn-next').addEventListener('click',nextRound);
+$('btn-restart').addEventListener('click',()=>{ sfxClick(); if(fbReady){try{db.ref(LB_NODE).off();}catch(e){}} $('player-name').value=playerName; show('screen-title'); });
+document.querySelectorAll('.btn').forEach(b=>b.addEventListener('mouseenter',sfxHover));
+</script>
+</body>
+</html>
